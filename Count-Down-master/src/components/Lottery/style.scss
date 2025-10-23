@@ -1,0 +1,809 @@
+// 添加新的样式
+.main-config {
+  display: flex;
+  flex-direction: row;
+}
+
+.config-panel {
+  width: 320px;
+  padding: 20px;
+  background: #f5f5f5;
+  border-left: 1px solid #ddd;
+  overflow-y: auto;
+  
+  .form {
+    margin-bottom: 20px;
+  }
+  
+  .config-item {
+    margin-bottom: 16px;
+  }
+  
+  .config-label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #333;
+    font-size: 14px;
+  }
+  
+  .config-content {
+    display: flex;
+    align-items: center;
+    
+    .config-input {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    
+    .config-unit {
+      margin-left: 8px;
+      color: #666;
+      font-size: 12px;
+    }
+  }
+  
+  .color-input {
+    width: 50px;
+    height: 40px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .participants-preview {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 12px;
+    max-height: 200px;
+    overflow-y: auto;
+    
+    .participants-count-badge {
+      background: #e6f7ff;
+      color: #1890ff;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      margin-bottom: 8px;
+      display: inline-block;
+    }
+    
+    .participants-list {
+      font-size: 13px;
+    }
+    
+    .participant-preview-item {
+      padding: 4px 0;
+      border-bottom: 1px solid #f0f0f0;
+      
+      &:last-child {
+        border-bottom: none;
+      }
+    }
+    
+    .participant-more {
+      color: #999;
+      font-style: italic;
+      padding: 4px 0;
+    }
+    
+    .no-participants-preview {
+      color: #999;
+      text-align: center;
+      padding: 20px;
+    }
+  }
+}
+
+// 加载状态
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  
+  .loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #1890ff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 16px;
+  }
+  
+  .loading-text {
+    color: #666;
+  }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+// 无数据状态
+.no-participants {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  
+  .no-data-text {
+    font-size: 18px;
+    color: #666;
+    margin-bottom: 8px;
+  }
+  
+  .no-data-hint {
+    font-size: 14px;
+    color: #999;
+  }
+}
+
+// 参与者统计
+.participants-count {
+  margin: 16px 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.lottery-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: 20px;
+}
+
+.lottery-title {
+  font-size: 3rem;
+  font-weight: bold;
+  margin-bottom: 2rem;
+  text-align: center;
+  color: #333;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* 球形扭蛋机容器 */
+.spherical-gashapon {
+  position: relative;
+  width: 420px;
+  height: 580px;
+  margin: 0 auto 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* 扭蛋机主体 - 更精致的设计 */
+.gashapon-machine {
+  position: relative;
+  width: 380px;
+  height: 520px;
+  background: 
+    linear-gradient(145deg, #a0522d, #8b4513),
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 10px,
+      rgba(139, 69, 19, 0.3) 10px,
+      rgba(139, 69, 19, 0.3) 20px
+    );
+  border-radius: 25px;
+  box-shadow: 
+    inset 0 -15px 30px rgba(0, 0, 0, 0.5),
+    inset 0 15px 30px rgba(255, 255, 255, 0.2),
+    0 25px 50px rgba(0, 0, 0, 0.4),
+    0 0 0 2px #5d4037,
+    0 0 0 6px #8b4513;
+  border: 4px solid #5d4037;
+  overflow: hidden;
+}
+
+/* 装饰边框 */
+.machine-frame {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  border: 3px solid #d7ccc8;
+  border-radius: 18px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* 金属装饰条 */
+.metal-trim {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  height: 8px;
+  background: linear-gradient(90deg, 
+    #c0c0c0, 
+    #e8e8e8 20%, 
+    #c0c0c0 40%, 
+    #e8e8e8 60%, 
+    #c0c0c0 80%, 
+    #e8e8e8
+  );
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  z-index: 2;
+}
+
+.metal-trim.top {
+  top: 25px;
+}
+
+.metal-trim.bottom {
+  bottom: 100px;
+}
+
+/* 玻璃观察窗 - 更精致的玻璃效果 */
+.glass-window {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 300px;
+  height: 300px;
+  background: 
+    radial-gradient(circle at 30% 30%, 
+      rgba(200, 230, 255, 0.9) 0%,
+      rgba(150, 200, 255, 0.6) 30%,
+      rgba(100, 150, 200, 0.3) 70%,
+      transparent 100%
+    ),
+    linear-gradient(135deg,
+      rgba(255, 255, 255, 0.8) 0%,
+      transparent 50%,
+      rgba(255, 255, 255, 0.6) 100%
+    );
+  border-radius: 50%;
+  border: 6px solid #2c3e50;
+  box-shadow: 
+    inset 0 0 40px rgba(255, 255, 255, 0.8),
+    inset 0 0 60px rgba(173, 216, 230, 0.6),
+    0 0 30px rgba(100, 150, 255, 0.4),
+    0 10px 20px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(3px);
+  z-index: 3;
+}
+
+/* 玻璃高光效果 */
+.glass-highlight {
+  position: absolute;
+  top: 15%;
+  left: 15%;
+  width: 30%;
+  height: 20%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 255, 255, 0.8) 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    transparent 100%
+  );
+  border-radius: 50%;
+  filter: blur(5px);
+  z-index: 4;
+}
+
+/* 扭蛋机顶部 - 更精致 */
+.machine-top {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 220px;
+  height: 70px;
+  background: linear-gradient(145deg, #b5651d, #8b4513);
+  border-radius: 120px 120px 0 0;
+  box-shadow: 
+    inset 0 -8px 15px rgba(0, 0, 0, 0.4),
+    0 5px 10px rgba(0, 0, 0, 0.2);
+  border-bottom: 3px solid #5d4037;
+}
+
+/* 顶部装饰 */
+.top-ornament {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 20px;
+  background: linear-gradient(90deg, #ffd700, #ffed4e, #ffd700);
+  border-radius: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* 扭蛋机底座 - 更精致 */
+.machine-base {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 320px;
+  height: 90px;
+  background: 
+    linear-gradient(145deg, #808080, #696969),
+    repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 5px,
+      rgba(255, 255, 255, 0.1) 5px,
+      rgba(255, 255, 255, 0.1) 10px
+    );
+  border-radius: 25px 25px 0 0;
+  box-shadow: 
+    inset 0 8px 15px rgba(255, 255, 255, 0.3),
+    inset 0 -8px 15px rgba(0, 0, 0, 0.4),
+    0 5px 15px rgba(0, 0, 0, 0.3);
+  border-top: 4px solid #a9a9a9;
+}
+
+/* 底座装饰 */
+.base-details {
+  position: absolute;
+  top: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 200px;
+  height: 4px;
+  background: linear-gradient(90deg, #ffd700, #ffed4e, #ffd700);
+  border-radius: 2px;
+}
+
+/* 掉落通道 - 更精致 */
+.drop-chute {
+  position: absolute;
+  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90px;
+  height: 70px;
+  background: 
+    linear-gradient(145deg, #d0d0d0, #b0b0b0),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 3px,
+      rgba(255, 255, 255, 0.3) 3px,
+      rgba(255, 255, 255, 0.3) 6px
+    );
+  border-radius: 12px 12px 0 0;
+  box-shadow: 
+    inset 0 4px 8px rgba(255, 255, 255, 0.6),
+    inset 0 -4px 8px rgba(0, 0, 0, 0.3),
+    0 5px 10px rgba(0, 0, 0, 0.2);
+  border: 3px solid #2c3e50;
+  z-index: 4;
+}
+
+/* 接球托盘 - 更精致 */
+.collection-tray {
+  position: absolute;
+  bottom: 25px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 220px;
+  height: 110px;
+  background: 
+    linear-gradient(145deg, #e6c9a8, #d2b48c),
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 10px,
+      rgba(210, 180, 140, 0.3) 10px,
+      rgba(210, 180, 140, 0.3) 20px
+    );
+  border-radius: 15px;
+  box-shadow: 
+    inset 0 8px 15px rgba(255, 255, 255, 0.5),
+    inset 0 -8px 15px rgba(0, 0, 0, 0.3),
+    0 8px 20px rgba(0, 0, 0, 0.3);
+  border: 4px solid #8b4513;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 托盘边缘装饰 */
+.tray-edge {
+  position: absolute;
+  top: -2px;
+  left: 10px;
+  right: 10px;
+  height: 4px;
+  background: linear-gradient(90deg, #ffd700, #ffed4e, #ffd700);
+  border-radius: 2px;
+}
+
+/* 彩球容器 */
+.balls-container {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  z-index: 2;
+  overflow: hidden;
+}
+
+/* 彩球基础样式 - 更立体 */
+.lottery-ball {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 
+    inset -4px -4px 8px rgba(0, 0, 0, 0.4),
+    inset 4px 4px 8px rgba(255, 255, 255, 0.6),
+    0 6px 12px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.2);
+  z-index: 3;
+  transform-origin: center;
+  transition: all 0.3s ease;
+}
+
+/* 球体高光效果 */
+.ball-highlight {
+  position: absolute;
+  top: 20%;
+  left: 20%;
+  width: 30%;
+  height: 30%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 255, 255, 0.9) 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    transparent 100%
+  );
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* 所有球的初始位置 - 在底部堆叠 */
+.lottery-ball:nth-child(1) { top: 190px; left: 130px; }
+.lottery-ball:nth-child(2) { top: 170px; left: 170px; }
+.lottery-ball:nth-child(3) { top: 210px; left: 150px; }
+.lottery-ball:nth-child(4) { top: 180px; left: 110px; }
+.lottery-ball:nth-child(5) { top: 160px; left: 140px; }
+.lottery-ball:nth-child(6) { top: 200px; left: 180px; }
+.lottery-ball:nth-child(7) { top: 175px; left: 90px; }
+.lottery-ball:nth-child(8) { top: 220px; left: 120px; }
+.lottery-ball:nth-child(9) { top: 150px; left: 100px; }
+.lottery-ball:nth-child(10) { top: 230px; left: 160px; }
+.lottery-ball:nth-child(11) { top: 185px; left: 200px; }
+.lottery-ball:nth-child(12) { top: 165px; left: 80px; }
+
+/* 静态彩球（抽奖前） */
+.static-ball {
+  // 保持初始位置，没有动画
+}
+
+/* 抽奖中的翻滚球 - 修复：确保所有球都有动画 */
+.rolling-ball {
+  // 基础动画类
+}
+
+/* 为每个球分配不同的动画 */
+.rolling-ball.ball-1 { animation: sphereRoll1 2.5s ease-in-out infinite; }
+.rolling-ball.ball-2 { animation: sphereRoll2 2.7s ease-in-out infinite; }
+.rolling-ball.ball-3 { animation: sphereRoll3 2.3s ease-in-out infinite; }
+.rolling-ball.ball-4 { animation: sphereRoll4 2.6s ease-in-out infinite; }
+.rolling-ball.ball-5 { animation: sphereRoll5 2.4s ease-in-out infinite; }
+.rolling-ball.ball-6 { animation: sphereRoll6 2.8s ease-in-out infinite; }
+.rolling-ball.ball-7 { animation: sphereRoll7 2.5s ease-in-out infinite; }
+.rolling-ball.ball-8 { animation: sphereRoll8 2.2s ease-in-out infinite; }
+.rolling-ball.ball-9 { animation: sphereRoll9 2.9s ease-in-out infinite; }
+.rolling-ball.ball-10 { animation: sphereRoll10 2.1s ease-in-out infinite; }
+.rolling-ball.ball-11 { animation: sphereRoll11 2.6s ease-in-out infinite; }
+.rolling-ball.ball-12 { animation: sphereRoll12 2.4s ease-in-out infinite; }
+
+/* 掉落的中奖球 */
+.dropping-ball {
+  animation: smoothDrop 1.5s ease-out forwards;
+  z-index: 10;
+}
+
+/* 中奖球在托盘中的样式 */
+.winner-ball-tray {
+  width: 55px;
+  height: 55px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 
+    inset -4px -4px 8px rgba(0, 0, 0, 0.4),
+    inset 4px 4px 8px rgba(255, 255, 255, 0.6),
+    0 8px 16px rgba(0, 0, 0, 0.4),
+    0 0 25px gold,
+    0 0 35px rgba(255, 215, 0, 0.6);
+  animation: winnerAppear 0.8s ease-out forwards;
+  z-index: 4;
+  position: relative;
+}
+
+.winner-ball-tray .ball-highlight {
+  top: 15%;
+  left: 15%;
+  width: 35%;
+  height: 35%;
+}
+
+.ball-text {
+  color: white;
+  font-size: 13px;
+  font-weight: bold;
+  text-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.8),
+    0 0 10px rgba(255, 255, 255, 0.5);
+  text-align: center;
+  line-height: 1;
+  opacity: 0;
+  animation: textFadeIn 0.5s ease-out forwards 0.3s;
+  z-index: 2;
+  position: relative;
+}
+
+/* 球体翻滚动画 */
+@keyframes sphereRoll1 {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  20% { transform: translate(60px, -40px) rotate(72deg); }
+  40% { transform: translate(-50px, 50px) rotate(144deg); }
+  60% { transform: translate(40px, 60px) rotate(216deg); }
+  80% { transform: translate(-60px, -50px) rotate(288deg); }
+}
+
+@keyframes sphereRoll2 {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  20% { transform: translate(-50px, -60px) rotate(-60deg); }
+  40% { transform: translate(60px, -40px) rotate(-120deg); }
+  60% { transform: translate(-40px, 60px) rotate(-180deg); }
+  80% { transform: translate(50px, 40px) rotate(-240deg); }
+}
+
+@keyframes sphereRoll3 {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  20% { transform: translate(40px, -60px) rotate(90deg); }
+  40% { transform: translate(-60px, 40px) rotate(180deg); }
+  60% { transform: translate(50px, 50px) rotate(270deg); }
+  80% { transform: translate(-40px, -60px) rotate(360deg); }
+}
+
+@keyframes sphereRoll4 {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  20% { transform: translate(-60px, 50px) rotate(-72deg); }
+  40% { transform: translate(50px, -60px) rotate(-144deg); }
+  60% { transform: translate(-40px, -50px) rotate(-216deg); }
+  80% { transform: translate(60px, 40px) rotate(-288deg); }
+}
+
+@keyframes sphereRoll5 {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  20% { transform: translate(50px, 60px) rotate(45deg); }
+  40% { transform: translate(-60px, 40px) rotate(90deg); }
+  60% { transform: translate(40px, -60px) rotate(135deg); }
+  80% { transform: translate(-50px, -40px) rotate(180deg); }
+}
+
+@keyframes sphereRoll6 {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  20% { transform: translate(-40px, 60px) rotate(-45deg); }
+  40% { transform: translate(60px, -50px) rotate(-90deg); }
+  60% { transform: translate(-50px, -40px) rotate(-135deg); }
+  80% { transform: translate(40px, 50px) rotate(-180deg); }
+}
+
+@keyframes sphereRoll7 {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  20% { transform: translate(60px, -50px) rotate(60deg); }
+  40% { transform: translate(-50px, 60px) rotate(120deg); }
+  60% { transform: translate(40px, 40px) rotate(180deg); }
+  80% { transform: translate(-60px, -60px) rotate(240deg); }
+}
+
+@keyframes sphereRoll8 {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  20% { transform: translate(-60px, 40px) rotate(-30deg); }
+  40% { transform: translate(40px, -60px) rotate(-60deg); }
+  60% { transform: translate(-50px, -40px) rotate(-90deg); }
+  80% { transform: translate(60px, 50px) rotate(-120deg); }
+}
+
+@keyframes sphereRoll9 {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  20% { transform: translate(50px, -60px) rotate(75deg); }
+  40% { transform: translate(-60px, 50px) rotate(150deg); }
+  60% { transform: translate(40px, 40px) rotate(225deg); }
+  80% { transform: translate(-50px, -60px) rotate(300deg); }
+}
+
+@keyframes sphereRoll10 {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  20% { transform: translate(-50px, -60px) rotate(-75deg); }
+  40% { transform: translate(60px, -40px) rotate(-150deg); }
+  60% { transform: translate(-40px, 60px) rotate(-225deg); }
+  80% { transform: translate(50px, 40px) rotate(-300deg); }
+}
+
+@keyframes sphereRoll11 {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  20% { transform: translate(40px, 60px) rotate(120deg); }
+  40% { transform: translate(-60px, -40px) rotate(240deg); }
+  60% { transform: translate(50px, -50px) rotate(360deg); }
+  80% { transform: translate(-40px, 60px) rotate(480deg); }
+}
+
+@keyframes sphereRoll12 {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  20% { transform: translate(-40px, -60px) rotate(-120deg); }
+  40% { transform: translate(60px, 40px) rotate(-240deg); }
+  60% { transform: translate(-50px, 50px) rotate(-360deg); }
+  80% { transform: translate(40px, -60px) rotate(-480deg); }
+}
+
+@keyframes smoothDrop {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  30% {
+    transform: translate(0, 60px) scale(0.9);
+    opacity: 0.8;
+  }
+  60% {
+    transform: translate(0, 120px) scale(0.8);
+    opacity: 0.6;
+  }
+  90% {
+    transform: translate(0, 180px) scale(0.7);
+    opacity: 0.3;
+  }
+  100% {
+    transform: translate(0, 200px) scale(0.6);
+    opacity: 0;
+  }
+}
+
+@keyframes winnerAppear {
+  0% {
+    transform: scale(0) rotate(-180deg);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.1) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes textFadeIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 控制按钮样式 */
+.lottery-controls {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 2rem;
+}
+
+.lottery-button {
+  min-width: 140px;
+  height: 52px;
+  font-size: 1.2rem;
+  font-weight: 600;
+  border-radius: 26px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  color: white;
+  transition: all 0.3s ease;
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+}
+
+.lottery-button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+}
+
+.lottery-button:active {
+  transform: translateY(-1px);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .spherical-gashapon {
+    width: 350px;
+    height: 500px;
+  }
+  
+  .gashapon-machine {
+    width: 320px;
+    height: 450px;
+  }
+  
+  .glass-window {
+    width: 250px;
+    height: 250px;
+  }
+  
+  .balls-container {
+    width: 250px;
+    height: 250px;
+  }
+  
+  .lottery-ball {
+    width: 35px;
+    height: 35px;
+  }
+  
+  .winner-ball-tray {
+    width: 45px;
+    height: 45px;
+  }
+}
+
+@media (max-width: 480px) {
+  .spherical-gashapon {
+    width: 300px;
+    height: 450px;
+  }
+  
+  .gashapon-machine {
+    width: 280px;
+    height: 400px;
+  }
+  
+  .glass-window {
+    width: 220px;
+    height: 220px;
+  }
+  
+  .balls-container {
+    width: 220px;
+    height: 220px;
+  }
+  
+  .lottery-ball {
+    width: 30px;
+    height: 30px;
+  }
+  
+  .winner-ball-tray {
+    width: 40px;
+    height: 40px;
+  }
+}
