@@ -1,6 +1,6 @@
 import './style.scss';
 import React, { useLayoutEffect, useMemo } from 'react';
-import { dashboard, bitable, DashboardState, IConfig, ITable, IField, IRecord } from "@lark-base-open/js-sdk";
+import { dashboard, bitable, DashboardState, IConfig } from "@lark-base-open/js-sdk";
 import { Button, Select, Toast } from '@douyinfe/semi-ui';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useConfig } from '../../hooks';
@@ -43,8 +43,8 @@ export default function Lottery(props: { bgColor: string }) {
   });
 
   // 表格和字段列表
-  const [tables, setTables] = useState<ITable[]>([]);
-  const [fields, setFields] = useState<IField[]>([]);
+  const [tables, setTables] = useState<any[]>([]);
+  const [fields, setFields] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const isCreate = dashboard.state === DashboardState.Create;
@@ -67,7 +67,7 @@ export default function Lottery(props: { bgColor: string }) {
   /** 是否配置/创建模式下 */
   const isConfig = dashboard.state === DashboardState.Config || isCreate;
 
-  const timer = useRef<any>();
+  const timer = useRef<number | null>(null);
 
   /** 配置用户配置 */
   const updateConfig = (res: IConfig) => {
@@ -77,7 +77,7 @@ export default function Lottery(props: { bgColor: string }) {
     const { customConfig } = res;
     if (customConfig) {
       setConfig(customConfig as any);
-      timer.current = setTimeout(() => {
+      timer.current = window.setTimeout(() => {
         dashboard.setRendered();
       }, 3000);
     }
@@ -117,9 +117,10 @@ export default function Lottery(props: { bgColor: string }) {
       const fieldList = await table.getFieldList();
       
       // 过滤出文本类型的字段
-      const textFields = fieldList.filter(field => 
-        field.type === 1 // 文本类型
-      );
+      const textFields = fieldList.filter((field: any) => {
+        // 根据实际字段类型进行过滤，文本类型通常是 1 或 'Text'
+        return field.type === 1 || field.type === 'Text';
+      });
       
       setFields(textFields);
       
@@ -148,9 +149,21 @@ export default function Lottery(props: { bgColor: string }) {
       const participants: string[] = [];
       
       for (const record of recordList) {
-        const cellValue = await table.getCellValue(fieldId, record.recordId);
-        if (cellValue && typeof cellValue === 'object' && 'text' in cellValue) {
-          const name = (cellValue as any).text?.trim();
+        const cellValue = await table.getCellValue(fieldId, record.id);
+        if (cellValue) {
+          // 处理不同的字段值类型
+          let name = '';
+          if (typeof cellValue === 'string') {
+            name = cellValue.trim();
+          } else if (typeof cellValue === 'object' && cellValue !== null) {
+            // 处理对象类型的字段值
+            if ('text' in cellValue) {
+              name = (cellValue as any).text?.trim() || '';
+            } else if ('name' in cellValue) {
+              name = (cellValue as any).name?.trim() || '';
+            }
+          }
+          
           if (name && !participants.includes(name)) {
             participants.push(name);
           }
@@ -240,7 +253,7 @@ function LotteryView({ config, isConfig, loading, t }: ILotteryView) {
   const [showResult, setShowResult] = useState(false);
   const [winnerIndex, setWinnerIndex] = useState<number>(-1);
 
-  const spinTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const spinTimeoutRef = useRef<number | null>(null);
 
   const startSpin = useCallback(() => {
     if (isSpinning || participants.length === 0) return;
@@ -250,7 +263,7 @@ function LotteryView({ config, isConfig, loading, t }: ILotteryView) {
     setWinner(null);
     setWinnerIndex(-1);
 
-    spinTimeoutRef.current = setTimeout(() => {
+    spinTimeoutRef.current = window.setTimeout(() => {
       setIsSpinning(false);
       setIsDropping(true);
       
@@ -312,14 +325,20 @@ function LotteryView({ config, isConfig, loading, t }: ILotteryView) {
       ) : (
         <div className="lottery-container">
           <div className="spherical-gashapon">
-            {/* 你的扭蛋机UI结构保持不变 */}
             <div className="gashapon-machine">
+              {/* 装饰边框 */}
               <div className="machine-frame"></div>
+              
+              {/* 金属装饰条 */}
               <div className="metal-trim top"></div>
               <div className="metal-trim bottom"></div>
+              
+              {/* 扭蛋机顶部 */}
               <div className="machine-top">
                 <div className="top-ornament"></div>
               </div>
+              
+              {/* 玻璃观察窗 */}
               <div className="glass-window">
                 <div className="glass-highlight"></div>
               </div>
@@ -332,9 +351,7 @@ function LotteryView({ config, isConfig, loading, t }: ILotteryView) {
                     className={classnames('lottery-ball', {
                       'static-ball': !isSpinning && !isDropping && !showResult,
                       'rolling-ball': isSpinning,
-                      [`ball-${index + 1}`]: isSpinning,
                       'dropping-ball': isDropping && winnerIndex === index,
-                      'static-ball': showResult && winnerIndex !== index,
                     })}
                     style={{
                       backgroundColor: BALL_COLORS[index % BALL_COLORS.length],
@@ -345,10 +362,13 @@ function LotteryView({ config, isConfig, loading, t }: ILotteryView) {
                 ))}
               </div>
               
+              {/* 掉落通道 */}
               <div className="drop-chute"></div>
               
+              {/* 接球托盘 */}
               <div className="collection-tray">
                 <div className="tray-edge"></div>
+                {/* 中奖球在托盘中显示 */}
                 {showResult && winner && (
                   <div
                     className="winner-ball-tray"
@@ -362,6 +382,7 @@ function LotteryView({ config, isConfig, loading, t }: ILotteryView) {
                 )}
               </div>
               
+              {/* 扭蛋机底座 */}
               <div className="machine-base">
                 <div className="base-details"></div>
               </div>
@@ -419,8 +440,8 @@ function LotteryView({ config, isConfig, loading, t }: ILotteryView) {
 function ConfigPanel(props: {
   config: ILotteryConfig;
   setConfig: React.Dispatch<React.SetStateAction<ILotteryConfig>>;
-  tables: ITable[];
-  fields: IField[];
+  tables: any[];
+  fields: any[];
   loading: boolean;
   onRefreshData: () => void;
   t: TFunction<"translation", undefined>;
@@ -436,7 +457,8 @@ function ConfigPanel(props: {
   };
 
   /** 处理表格选择 */
-  const handleTableChange = (tableId: string) => {
+  const handleTableChange = (value: any) => {
+    const tableId = String(value);
     setConfig({
       ...config,
       tableId,
@@ -446,7 +468,8 @@ function ConfigPanel(props: {
   };
 
   /** 处理字段选择 */
-  const handleFieldChange = (fieldId: string) => {
+  const handleFieldChange = (value: any) => {
+    const fieldId = String(value);
     setConfig({
       ...config,
       fieldId,
@@ -494,7 +517,7 @@ function ConfigPanel(props: {
               placeholder={t('lottery.selectTablePlaceholder')}
               loading={loading}
             >
-              {tables.map(table => (
+              {tables.map((table: any) => (
                 <Select.Option key={table.id} value={table.id}>
                   {table.name}
                 </Select.Option>
@@ -515,7 +538,7 @@ function ConfigPanel(props: {
               disabled={!config.tableId}
               loading={loading}
             >
-              {fields.map(field => (
+              {fields.map((field: any) => (
                 <Select.Option key={field.id} value={field.id}>
                   {field.name}
                 </Select.Option>
