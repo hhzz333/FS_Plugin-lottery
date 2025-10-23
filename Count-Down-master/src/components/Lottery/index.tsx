@@ -1,19 +1,18 @@
 import './style.scss';
-import React, { useLayoutEffect, useMemo } from 'react';
+import React from 'react';
 import { dashboard, bitable, DashboardState, IConfig } from "@lark-base-open/js-sdk";
 import { Button, Select, Toast } from '@douyinfe/semi-ui';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useConfig } from '../../hooks';
 import classnames from 'classnames'
 import { useTranslation } from 'react-i18next';
-import { TFunction } from 'i18next/typescript/t';
 
 /** 抽奖配置接口 */
 interface ILotteryConfig {
   color: string;
-  tableId: string; // 选择的表格ID
-  fieldId: string; // 选择的字段ID
-  participants: string[]; // 从表格获取的参与者名单
+  tableId: string;
+  fieldId: string;
+  participants: string[];
   spinDuration: number;
   dropDuration: number;
   showTitle: boolean;
@@ -30,7 +29,6 @@ const BALL_COLORS = [
 export default function Lottery(props: { bgColor: string }) {
   const { t, i18n } = useTranslation();
 
-  // 创建时的默认配置
   const [config, setConfig] = useState<ILotteryConfig>({
     color: DEFAULT_COLOR,
     tableId: '',
@@ -42,12 +40,15 @@ export default function Lottery(props: { bgColor: string }) {
     title: t('lottery.title'),
   });
 
-  // 表格和字段列表
   const [tables, setTables] = useState<any[]>([]);
   const [fields, setFields] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const isCreate = dashboard.state === DashboardState.Create;
+  const isConfig = dashboard.state === DashboardState.Config || isCreate;
+
+  console.log('当前仪表盘状态:', dashboard.state);
+  console.log('是否配置模式:', isConfig);
 
   useEffect(() => {
     if (isCreate) {
@@ -64,18 +65,15 @@ export default function Lottery(props: { bgColor: string }) {
     }
   }, [i18n.language, isCreate]);
 
-  /** 是否配置/创建模式下 */
-  const isConfig = dashboard.state === DashboardState.Config || isCreate;
-
   const timer = useRef<number | null>(null);
 
-  /** 配置用户配置 */
   const updateConfig = (res: IConfig) => {
     if (timer.current) {
       clearTimeout(timer.current);
     }
     const { customConfig } = res;
     if (customConfig) {
+      console.log('收到配置更新:', customConfig);
       setConfig(customConfig as any);
       timer.current = window.setTimeout(() => {
         dashboard.setRendered();
@@ -85,16 +83,17 @@ export default function Lottery(props: { bgColor: string }) {
 
   useConfig(updateConfig);
 
-  /** 获取表格列表 */
   const loadTables = useCallback(async () => {
     try {
       setLoading(true);
+      console.log('开始加载表格列表...');
       const tableList = await bitable.base.getTableList();
+      console.log('获取到的表格列表:', tableList);
       setTables(tableList);
       
-      // 如果有表格但没有选择，默认选择第一个表格
       if (tableList.length > 0 && !config.tableId) {
         const firstTable = tableList[0];
+        console.log('默认选择第一个表格:', firstTable);
         setConfig(prev => ({
           ...prev,
           tableId: firstTable.id
@@ -108,25 +107,28 @@ export default function Lottery(props: { bgColor: string }) {
     }
   }, [config.tableId, t]);
 
-  /** 获取字段列表 */
   const loadFields = useCallback(async (tableId: string) => {
     try {
       if (!tableId) return;
       
+      console.log('开始加载字段列表，表格ID:', tableId);
       const table = await bitable.base.getTableById(tableId);
       const fieldList = await table.getFieldList();
+      console.log('获取到的字段列表:', fieldList);
       
       // 过滤出文本类型的字段
       const textFields = fieldList.filter((field: any) => {
-        // 根据实际字段类型进行过滤，文本类型通常是 1 或 'Text'
-        return field.type === 1 || field.type === 'Text';
+        const fieldType = field.type;
+        // 文本类型字段：1-文本, 4-单选, 5-多选, 11-人员
+        return fieldType === 1 || fieldType === 4 || fieldType === 5 || fieldType === 11;
       });
       
+      console.log('过滤后的文本字段:', textFields);
       setFields(textFields);
       
-      // 如果有文本字段但没有选择，默认选择第一个文本字段
       if (textFields.length > 0 && !config.fieldId) {
         const firstField = textFields[0];
+        console.log('默认选择第一个字段:', firstField);
         setConfig(prev => ({
           ...prev,
           fieldId: firstField.id
@@ -143,33 +145,73 @@ export default function Lottery(props: { bgColor: string }) {
     try {
       if (!tableId || !fieldId) return;
       
+      console.log('开始加载参与者数据，表格:', tableId, '字段:', fieldId);
       const table = await bitable.base.getTableById(tableId);
       const recordList = await table.getRecordList();
+      console.log('获取到的记录列表:', recordList);
+      
+      // 获取字段信息以确定字段类型
+      const field = await table.getFieldById(fieldId);
+      const fieldType = field.type;
+      console.log('字段类型:', fieldType);
       
       const participants: string[] = [];
       
       for (const record of recordList) {
-        const cellValue = await table.getCellValue(fieldId, record.id);
-        if (cellValue) {
-          // 处理不同的字段值类型
-          let name = '';
-          if (typeof cellValue === 'string') {
-            name = cellValue.trim();
-          } else if (typeof cellValue === 'object' && cellValue !== null) {
-            // 处理对象类型的字段值
-            if ('text' in cellValue) {
-              name = (cellValue as any).text?.trim() || '';
-            } else if ('name' in cellValue) {
-              name = (cellValue as any).name?.trim() || '';
+        try {
+          const cellValue = await table.getCellValue(fieldId, record.id);
+          console.log('单元格值类型:', typeof cellValue, '值:', cellValue);
+          
+          if (cellValue) {
+            let name = '';
+            const cellValueAny = cellValue as any;
+            
+            // 根据字段类型处理不同的数据格式
+            switch (fieldType) {
+              case 1: // 文本类型
+                name = String(cellValueAny).trim();
+                break;
+                
+              case 4: // 单选
+              case 5: // 多选
+                name = cellValueAny?.text ? String(cellValueAny.text).trim() : '';
+                break;
+                
+              case 11: // 人员字段
+                if (Array.isArray(cellValueAny) && cellValueAny.length > 0) {
+                  const firstUser = cellValueAny[0];
+                  name = firstUser?.name ? String(firstUser.name).trim() : '';
+                }
+                break;
+                
+              default:
+                // 通用处理
+                if (typeof cellValueAny === 'string') {
+                  name = cellValueAny.trim();
+                } else if (cellValueAny?.text) {
+                  name = String(cellValueAny.text).trim();
+                } else if (cellValueAny?.name) {
+                  name = String(cellValueAny.name).trim();
+                } else if (Array.isArray(cellValueAny) && cellValueAny.length > 0) {
+                  const firstItem = cellValueAny[0];
+                  if (firstItem && typeof firstItem === 'object' && 'name' in firstItem) {
+                    name = String((firstItem as any).name).trim();
+                  } else {
+                    name = String(firstItem).trim();
+                  }
+                }
+            }
+            
+            if (name && !participants.includes(name)) {
+              participants.push(name);
             }
           }
-          
-          if (name && !participants.includes(name)) {
-            participants.push(name);
-          }
+        } catch (cellError) {
+          console.warn('读取单元格失败:', cellError);
         }
       }
       
+      console.log('最终参与者列表:', participants);
       setConfig(prev => ({
         ...prev,
         participants
@@ -208,42 +250,47 @@ export default function Lottery(props: { bgColor: string }) {
   }, [config.tableId, config.fieldId, isConfig, loadParticipantsFromTable]);
 
   return (
-    <main style={{backgroundColor: props.bgColor}} className={classnames({'main-config': isConfig, 'main': true})}>
+    <main 
+      style={{
+        backgroundColor: props.bgColor,
+        paddingRight: isConfig ? '320px' : '0',
+        minHeight: '100vh',
+        position: 'relative',
+        transition: 'padding-right 0.3s ease'
+      }} 
+      className={classnames({'main-config': isConfig, 'main': true})}
+    >
       <div className='content'>
         <LotteryView
           t={t}
           config={config}
           isConfig={isConfig}
           loading={loading}
-          key={config.participants.join(',')} // 参与者变化时重新渲染
         />
       </div>
-      {
-        isConfig && (
-          <ConfigPanel 
-            t={t} 
-            config={config} 
-            setConfig={setConfig}
-            tables={tables}
-            fields={fields}
-            loading={loading}
-            onRefreshData={() => loadParticipantsFromTable(config.tableId, config.fieldId)}
-          />
-        )
-      }
+      
+      {isConfig && (
+        <ConfigPanel 
+          t={t} 
+          config={config} 
+          setConfig={setConfig}
+          tables={tables}
+          fields={fields}
+          loading={loading}
+          onRefreshData={() => loadParticipantsFromTable(config.tableId, config.fieldId)}
+        />
+      )}
     </main>
   );
 }
 
-/** 抽奖显示组件 Props */
 interface ILotteryView {
   config: ILotteryConfig;
   isConfig: boolean;
   loading: boolean;
-  t: TFunction<"translation", undefined>;
+  t: any;
 }
 
-/** 抽奖显示组件 */
 function LotteryView({ config, isConfig, loading, t }: ILotteryView) {
   const { color, participants, spinDuration, dropDuration, showTitle, title } = config;
   
@@ -290,7 +337,6 @@ function LotteryView({ config, isConfig, loading, t }: ILotteryView) {
     }
   }, []);
 
-  // 清理定时器
   useEffect(() => {
     return () => {
       if (spinTimeoutRef.current) {
@@ -299,7 +345,6 @@ function LotteryView({ config, isConfig, loading, t }: ILotteryView) {
     };
   }, []);
 
-  // 如果没有参与者数据
   if (participants.length === 0 && !isConfig) {
     return (
       <div className="no-participants">
@@ -310,7 +355,7 @@ function LotteryView({ config, isConfig, loading, t }: ILotteryView) {
   }
 
   return (
-    <div style={{ width: '100vw', textAlign: 'center', overflow: 'hidden' }}>
+    <div className="lottery-main-content">
       {showTitle && (
         <h1 style={{ color }} className="lottery-title">
           {title}
@@ -326,24 +371,16 @@ function LotteryView({ config, isConfig, loading, t }: ILotteryView) {
         <div className="lottery-container">
           <div className="spherical-gashapon">
             <div className="gashapon-machine">
-              {/* 装饰边框 */}
               <div className="machine-frame"></div>
-              
-              {/* 金属装饰条 */}
               <div className="metal-trim top"></div>
               <div className="metal-trim bottom"></div>
-              
-              {/* 扭蛋机顶部 */}
               <div className="machine-top">
                 <div className="top-ornament"></div>
               </div>
-              
-              {/* 玻璃观察窗 */}
               <div className="glass-window">
                 <div className="glass-highlight"></div>
               </div>
               
-              {/* 彩球容器 */}
               <div className="balls-container">
                 {participants.map((name, index) => (
                   <div
@@ -362,13 +399,10 @@ function LotteryView({ config, isConfig, loading, t }: ILotteryView) {
                 ))}
               </div>
               
-              {/* 掉落通道 */}
               <div className="drop-chute"></div>
               
-              {/* 接球托盘 */}
               <div className="collection-tray">
                 <div className="tray-edge"></div>
-                {/* 中奖球在托盘中显示 */}
                 {showResult && winner && (
                   <div
                     className="winner-ball-tray"
@@ -382,19 +416,16 @@ function LotteryView({ config, isConfig, loading, t }: ILotteryView) {
                 )}
               </div>
               
-              {/* 扭蛋机底座 */}
               <div className="machine-base">
                 <div className="base-details"></div>
               </div>
             </div>
           </div>
           
-          {/* 参与者统计 */}
           <div className="participants-count">
             {t('lottery.participantsCount', { count: participants.length })}
           </div>
           
-          {/* 中奖结果 */}
           {showResult && winner && (
             <div className="lottery-result" style={{ color }}>
               <div className="result-text">🎉 {t('lottery.congratulations')} 🎉</div>
@@ -402,7 +433,6 @@ function LotteryView({ config, isConfig, loading, t }: ILotteryView) {
             </div>
           )}
           
-          {/* 控制按钮 - 仅在非配置模式下显示 */}
           {!isConfig && (
             <div className="lottery-controls">
               {!isSpinning && !showResult && (
@@ -436,7 +466,6 @@ function LotteryView({ config, isConfig, loading, t }: ILotteryView) {
   );
 }
 
-/** 配置面板组件 */
 function ConfigPanel(props: {
   config: ILotteryConfig;
   setConfig: React.Dispatch<React.SetStateAction<ILotteryConfig>>;
@@ -444,193 +473,214 @@ function ConfigPanel(props: {
   fields: any[];
   loading: boolean;
   onRefreshData: () => void;
-  t: TFunction<"translation", undefined>;
+  t: any;
 }) {
   const { config, setConfig, tables, fields, loading, onRefreshData, t } = props;
 
-  /** 保存配置 */
   const onSaveConfig = () => {
+    console.log('保存配置:', config);
     dashboard.saveConfig({
       customConfig: config,
       dataConditions: [],
-    } as any);
-  };
-
-  /** 处理表格选择 */
-  const handleTableChange = (value: any) => {
-    const tableId = String(value);
-    setConfig({
-      ...config,
-      tableId,
-      fieldId: '', // 清空字段选择
-      participants: [], // 清空参与者数据
+    } as any).then(() => {
+      Toast.success('配置保存成功');
+    }).catch((error: any) => {
+      console.error('保存配置失败:', error);
+      Toast.error('保存配置失败');
     });
   };
 
-  /** 处理字段选择 */
+  const handleTableChange = (value: any) => {
+    const tableId = String(value);
+    console.log('选择表格:', tableId);
+    setConfig({
+      ...config,
+      tableId,
+      fieldId: '',
+      participants: [],
+    });
+  };
+
   const handleFieldChange = (value: any) => {
     const fieldId = String(value);
+    console.log('选择字段:', fieldId);
     setConfig({
       ...config,
       fieldId,
-      participants: [], // 清空参与者数据
+      participants: [],
     });
   };
 
   return (
-    <div className='config-panel'>
+    <div className='config-panel' style={{
+      position: 'fixed',
+      right: 0,
+      top: 0,
+      bottom: 0,
+      width: '320px',
+      background: '#f8f9fa',
+      borderLeft: '1px solid #e1e5e9',
+      zIndex: 1000,
+      overflowY: 'auto',
+      padding: '20px',
+      boxShadow: '-2px 0 10px rgba(0, 0, 0, 0.1)'
+    }}>
       <div className='form'>
-        {/* 标题设置 */}
-        <div className='config-item'>
-          <label className='config-label'>{t('lottery.showTitle')}</label>
-          <div className='config-content'>
-            <input
-              type="checkbox"
-              checked={config.showTitle}
-              onChange={(e) => setConfig({...config, showTitle: e.target.checked})}
-            />
-          </div>
-        </div>
-
-        {config.showTitle && (
+        <div className='config-section'>
+          <h3 style={{ margin: '0 0 16px 0', color: '#1a1a1a', fontSize: '16px', fontWeight: '600', borderBottom: '2px solid #1890ff', paddingBottom: '8px' }}>
+            抽奖配置
+          </h3>
+          
           <div className='config-item'>
-            <label className='config-label'>{t('lottery.title')}</label>
+            <label className='config-label'>{t('lottery.showTitle')}</label>
             <div className='config-content'>
               <input
-                type="text"
-                value={config.title}
-                onChange={(e) => setConfig({...config, title: e.target.value})}
-                className='config-input'
+                type="checkbox"
+                checked={config.showTitle}
+                onChange={(e) => setConfig({...config, showTitle: e.target.checked})}
               />
             </div>
           </div>
-        )}
 
-        {/* 表格选择 */}
-        <div className='config-item'>
-          <label className='config-label'>{t('lottery.selectTable')}</label>
-          <div className='config-content'>
-            <Select
-              value={config.tableId}
-              onChange={handleTableChange}
-              style={{ width: '100%' }}
-              placeholder={t('lottery.selectTablePlaceholder')}
-              loading={loading}
-            >
-              {tables.map((table: any) => (
-                <Select.Option key={table.id} value={table.id}>
-                  {table.name}
-                </Select.Option>
-              ))}
-            </Select>
-          </div>
-        </div>
+          {config.showTitle && (
+            <div className='config-item'>
+              <label className='config-label'>{t('lottery.title')}</label>
+              <div className='config-content'>
+                <input
+                  type="text"
+                  value={config.title}
+                  onChange={(e) => setConfig({...config, title: e.target.value})}
+                  className='config-input'
+                  style={{ width: '100%', padding: '8px 12px', border: '1px solid #d9d9d9', borderRadius: '4px', fontSize: '14px' }}
+                />
+              </div>
+            </div>
+          )}
 
-        {/* 字段选择 */}
-        <div className='config-item'>
-          <label className='config-label'>{t('lottery.selectField')}</label>
-          <div className='config-content'>
-            <Select
-              value={config.fieldId}
-              onChange={handleFieldChange}
-              style={{ width: '100%' }}
-              placeholder={t('lottery.selectFieldPlaceholder')}
-              disabled={!config.tableId}
-              loading={loading}
-            >
-              {fields.map((field: any) => (
-                <Select.Option key={field.id} value={field.id}>
-                  {field.name}
-                </Select.Option>
-              ))}
-            </Select>
-          </div>
-        </div>
-
-        {/* 参与者预览 */}
-        <div className='config-item'>
-          <label className='config-label'>
-            {t('lottery.participantsPreview')}
-            <Button 
-              size="small" 
-              onClick={onRefreshData}
-              disabled={!config.tableId || !config.fieldId}
-              loading={loading}
-              style={{ marginLeft: '8px' }}
-            >
-              {t('lottery.refresh')}
-            </Button>
-          </label>
-          <div className='config-content'>
-            <div className='participants-preview'>
-              {config.participants.length > 0 ? (
-                <>
-                  <div className='participants-count-badge'>
-                    {t('lottery.totalParticipants', { count: config.participants.length })}
-                  </div>
-                  <div className='participants-list'>
-                    {config.participants.slice(0, 10).map((participant, index) => (
-                      <div key={index} className='participant-preview-item'>
-                        {participant}
-                      </div>
-                    ))}
-                    {config.participants.length > 10 && (
-                      <div className='participant-more'>
-                        {t('lottery.andMore', { count: config.participants.length - 10 })}
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div className='no-participants-preview'>
-                  {t('lottery.noParticipantsPreview')}
-                </div>
-              )}
+          <div className='config-item'>
+            <label className='config-label'>{t('lottery.selectTable')}</label>
+            <div className='config-content'>
+              <Select
+                value={config.tableId}
+                onChange={handleTableChange}
+                style={{ width: '100%' }}
+                placeholder={t('lottery.selectTablePlaceholder')}
+                loading={loading}
+              >
+                {tables.map((table: any) => (
+                  <Select.Option key={table.id} value={table.id}>
+                    {table.name || `表格-${table.id}`}
+                  </Select.Option>
+                ))}
+              </Select>
             </div>
           </div>
-        </div>
 
-        {/* 动画时长设置 */}
-        <div className='config-item'>
-          <label className='config-label'>{t('lottery.spinDuration')}</label>
-          <div className='config-content'>
-            <input
-              type="number"
-              value={config.spinDuration}
-              onChange={(e) => setConfig({...config, spinDuration: Number(e.target.value)})}
-              className='config-input'
-              min="1000"
-              max="10000"
-            />
-            <span className='config-unit'>ms</span>
+          <div className='config-item'>
+            <label className='config-label'>{t('lottery.selectField')}</label>
+            <div className='config-content'>
+              <Select
+                value={config.fieldId}
+                onChange={handleFieldChange}
+                style={{ width: '100%' }}
+                placeholder={t('lottery.selectFieldPlaceholder')}
+                disabled={!config.tableId}
+                loading={loading}
+              >
+                {fields.map((field: any) => (
+                  <Select.Option key={field.id} value={field.id}>
+                    {field.name || `字段-${field.id}`}
+                  </Select.Option>
+                ))}
+              </Select>
+            </div>
           </div>
-        </div>
 
-        <div className='config-item'>
-          <label className='config-label'>{t('lottery.dropDuration')}</label>
-          <div className='config-content'>
-            <input
-              type="number"
-              value={config.dropDuration}
-              onChange={(e) => setConfig({...config, dropDuration: Number(e.target.value)})}
-              className='config-input'
-              min="500"
-              max="5000"
-            />
-            <span className='config-unit'>ms</span>
+          <div className='config-item'>
+            <label className='config-label'>
+              {t('lottery.participantsPreview')}
+              <Button 
+                size="small" 
+                onClick={onRefreshData}
+                disabled={!config.tableId || !config.fieldId}
+                loading={loading}
+                style={{ marginLeft: '8px' }}
+              >
+                {t('lottery.refresh')}
+              </Button>
+            </label>
+            <div className='config-content'>
+              <div className='participants-preview'>
+                {config.participants.length > 0 ? (
+                  <>
+                    <div className='participants-count-badge'>
+                      {t('lottery.totalParticipants', { count: config.participants.length })}
+                    </div>
+                    <div className='participants-list'>
+                      {config.participants.slice(0, 10).map((participant, index) => (
+                        <div key={index} className='participant-preview-item'>
+                          {participant}
+                        </div>
+                      ))}
+                      {config.participants.length > 10 && (
+                        <div className='participant-more'>
+                          {t('lottery.andMore', { count: config.participants.length - 10 })}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className='no-participants-preview'>
+                    {t('lottery.noParticipantsPreview')}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* 主题颜色 */}
-        <div className='config-item'>
-          <label className='config-label'>{t('lottery.color')}</label>
-          <div className='config-content'>
-            <input
-              type="color"
-              value={config.color}
-              onChange={(e) => setConfig({...config, color: e.target.value})}
-              className='color-input'
-            />
+          <div className='config-item'>
+            <label className='config-label'>{t('lottery.spinDuration')}</label>
+            <div className='config-content'>
+              <input
+                type="number"
+                value={config.spinDuration}
+                onChange={(e) => setConfig({...config, spinDuration: Number(e.target.value)})}
+                className='config-input'
+                min="1000"
+                max="10000"
+                style={{ width: '100px', padding: '8px', border: '1px solid #d9d9d9', borderRadius: '4px' }}
+              />
+              <span className='config-unit'>ms</span>
+            </div>
+          </div>
+
+          <div className='config-item'>
+            <label className='config-label'>{t('lottery.dropDuration')}</label>
+            <div className='config-content'>
+              <input
+                type="number"
+                value={config.dropDuration}
+                onChange={(e) => setConfig({...config, dropDuration: Number(e.target.value)})}
+                className='config-input'
+                min="500"
+                max="5000"
+                style={{ width: '100px', padding: '8px', border: '1px solid #d9d9d9', borderRadius: '4px' }}
+              />
+              <span className='config-unit'>ms</span>
+            </div>
+          </div>
+
+          <div className='config-item'>
+            <label className='config-label'>{t('lottery.color')}</label>
+            <div className='config-content'>
+              <input
+                type="color"
+                value={config.color}
+                onChange={(e) => setConfig({...config, color: e.target.value})}
+                className='color-input'
+                style={{ width: '50px', height: '40px', border: '1px solid #d9d9d9', borderRadius: '4px', cursor: 'pointer' }}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -640,6 +690,7 @@ function ConfigPanel(props: {
         theme='solid'
         onClick={onSaveConfig}
         disabled={config.participants.length === 0}
+        style={{ width: '100%', marginTop: '20px', height: '40px', fontWeight: '500' }}
       >
         {t('confirm')}
       </Button>

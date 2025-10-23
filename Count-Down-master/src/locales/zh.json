@@ -1,22 +1,22 @@
 {
   "lottery": {
-    "title": "抽奖",
+    "title": "幸运抽奖",
     "start": "开始抽奖",
-    "reset": "再来一次",
+    "reset": "重新开始",
     "congratulations": "恭喜中奖",
     "showTitle": "显示标题",
     "selectTable": "选择数据表",
-    "selectTablePlaceholder": "请选择数据表",
+    "selectTablePlaceholder": "请选择多维表格",
     "selectField": "选择姓名字段",
     "selectFieldPlaceholder": "请选择文本字段",
     "participantsPreview": "参与者预览",
     "refresh": "刷新数据",
-    "totalParticipants": "共 {count} 人",
+    "totalParticipants": "共 {count} 名参与者",
     "participantsCount": "当前参与者: {count} 人",
-    "andMore": "...等 {count} 人",
+    "andMore": "... 还有 {count} 人",
     "noParticipantsPreview": "请先选择表格和字段",
     "noData": "暂无参与者数据",
-    "configHint": "请在配置面板中选择数据源",
+    "configHint": "请点击右上角配置按钮，选择数据源",
     "loading": "加载中...",
     "loadSuccess": "成功加载 {count} 名参与者",
     "loadTableFailed": "加载表格列表失败",
@@ -27,5 +27,5 @@
     "dropDuration": "掉落时长",
     "color": "主题颜色"
   },
-  "confirm": "确认"
+  "confirm": "确认保存"
 }
