@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 interface ILotteryConfig {
   color: string;
   tableId: string;
+  viewId: string;
   fieldId: string;
   participants: string[];
   spinDuration: number;
@@ -29,18 +30,21 @@ const BALL_COLORS = [
 export default function Lottery(props: { bgColor: string }) {
   const { t, i18n } = useTranslation();
 
-  const [config, setConfig] = useState<ILotteryConfig>({
+  const defaultConfig: ILotteryConfig = {
     color: DEFAULT_COLOR,
     tableId: '',
-    fieldId: '',
+    viewId: '',
+    fieldId: '', 
     participants: [],
     spinDuration: 3000,
     dropDuration: 1000,
     showTitle: true,
-    title: t('lottery.title'),
-  });
+    title: t('lottery.title', '幸运抽奖'),
+  };
 
+  const [config, setConfig] = useState<ILotteryConfig>(defaultConfig);
   const [tables, setTables] = useState<{id: string, name: string}[]>([]);
+  const [views, setViews] = useState<{id: string, name: string}[]>([]);
   const [fields, setFields] = useState<{id: string, name: string}[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -49,49 +53,44 @@ export default function Lottery(props: { bgColor: string }) {
 
   useEffect(() => {
     if (isCreate) {
-      setConfig({
-        color: DEFAULT_COLOR,
-        tableId: '',
-        fieldId: '',
-        participants: [],
-        spinDuration: 3000,
-        dropDuration: 1000,
-        showTitle: true,
-        title: t('lottery.title'),
-      });
+      setConfig(defaultConfig);
     }
   }, [i18n.language, isCreate]);
 
   const timer = useRef<number | null>(null);
 
-  /** 配置更新回调 - 修复类型转换问题 */
-  const updateConfig = (res: IConfig) => {
+  const updateConfig = useCallback((res: IConfig) => {
     if (timer.current) {
       clearTimeout(timer.current);
     }
     const { customConfig } = res;
+    
     if (customConfig) {
-      // 安全的类型转换
+      console.log('收到配置更新:', customConfig);
+      
       const validatedConfig: ILotteryConfig = {
-        color: typeof customConfig.color === 'string' ? customConfig.color : DEFAULT_COLOR,
-        tableId: typeof customConfig.tableId === 'string' ? customConfig.tableId : '',
-        fieldId: typeof customConfig.fieldId === 'string' ? customConfig.fieldId : '',
-        participants: Array.isArray(customConfig.participants) ? customConfig.participants : [],
-        spinDuration: typeof customConfig.spinDuration === 'number' ? customConfig.spinDuration : 3000,
-        dropDuration: typeof customConfig.dropDuration === 'number' ? customConfig.dropDuration : 1000,
-        showTitle: typeof customConfig.showTitle === 'boolean' ? customConfig.showTitle : true,
-        title: typeof customConfig.title === 'string' ? customConfig.title : t('lottery.title'),
+        color: typeof customConfig.color === 'string' ? customConfig.color : defaultConfig.color,
+        tableId: typeof customConfig.tableId === 'string' ? customConfig.tableId : defaultConfig.tableId,
+        viewId: typeof customConfig.viewId === 'string' ? customConfig.viewId : defaultConfig.viewId,
+        fieldId: typeof customConfig.fieldId === 'string' ? customConfig.fieldId : defaultConfig.fieldId,
+        participants: Array.isArray(customConfig.participants) ? customConfig.participants : defaultConfig.participants,
+        spinDuration: typeof customConfig.spinDuration === 'number' ? customConfig.spinDuration : defaultConfig.spinDuration,
+        dropDuration: typeof customConfig.dropDuration === 'number' ? customConfig.dropDuration : defaultConfig.dropDuration,
+        showTitle: typeof customConfig.showTitle === 'boolean' ? customConfig.showTitle : defaultConfig.showTitle,
+        title: typeof customConfig.title === 'string' ? customConfig.title : defaultConfig.title,
       };
+      
       setConfig(validatedConfig);
       timer.current = window.setTimeout(() => {
         dashboard.setRendered();
       }, 3000);
+    } else {
+      setConfig(defaultConfig);
     }
-  };
+  }, []);
 
   useConfig(updateConfig);
 
-  /** 获取表格列表 */
   const loadTables = useCallback(async () => {
     try {
       setLoading(true);
@@ -125,7 +124,43 @@ export default function Lottery(props: { bgColor: string }) {
     }
   }, [config.tableId, t]);
 
-  /** 获取字段列表 */
+  const loadViews = useCallback(async (tableId: string) => {
+    try {
+      if (!tableId) {
+        setViews([]);
+        return;
+      }
+      
+      const table = await bitable.base.getTableById(tableId);
+      // 获取表格的所有视图
+      const viewList = await table.getViewList();
+      
+      const viewsWithInfo = await Promise.all(
+        viewList.map(async (view) => {
+          try {
+            const name = await view.getName();
+            return { id: view.id, name };
+          } catch (error) {
+            console.warn(`获取视图名称失败:`, error);
+            return { id: view.id, name: `视图-${view.id}` };
+          }
+        })
+      );
+      
+      setViews(viewsWithInfo);
+      
+      if (viewsWithInfo.length > 0 && !config.viewId) {
+        setConfig(prev => ({
+          ...prev,
+          viewId: viewsWithInfo[0].id
+        }));
+      }
+    } catch (error) {
+      console.error('获取视图列表失败:', error);
+      Toast.error(t('lottery.loadViewFailed'));
+    }
+  }, [config.viewId, t]);
+
   const loadFields = useCallback(async (tableId: string) => {
     try {
       if (!tableId) return;
@@ -165,37 +200,44 @@ export default function Lottery(props: { bgColor: string }) {
     }
   }, [config.fieldId, t]);
 
-  /** 从表格加载参与者数据 - 修复 recordId 问题 */
-  const loadParticipantsFromTable = useCallback(async (tableId: string, fieldId: string) => {
+  /** 从表格加载参与者数据 - 修复视图记录获取 */
+  const loadParticipantsFromTable = useCallback(async (tableId: string, viewId: string, fieldId: string) => {
     try {
       if (!tableId || !fieldId) return;
       
       const table = await bitable.base.getTableById(tableId);
       
-      // 正确使用 getRecordList()
-      const recordList = await table.getRecordList();
+      let recordList;
+      if (viewId) {
+        // 如果选择了特定视图，使用 table.getRecordList() 但传入视图ID
+        // 飞书 SDK 的 getRecordList 方法支持传入视图ID参数
+        try {
+          recordList = await (table as any).getRecordList({ viewId });
+        } catch (viewError) {
+          console.warn('使用视图获取记录失败，使用默认方式:', viewError);
+          recordList = await table.getRecordList();
+        }
+      } else {
+        // 如果没有选择视图，使用默认的记录获取方式
+        recordList = await table.getRecordList();
+      }
       
       const participants: string[] = [];
       
-      // recordList 已经是数组，可以直接遍历
       for (const record of recordList) {
         try {
-          // 使用 record.id 而不是 record.recordId
           const cellValue = await table.getCellValue(fieldId, record.id);
           
           if (cellValue) {
             let name = '';
             
-            // 根据飞书 SDK 文档处理不同的字段类型
             if (typeof cellValue === 'string') {
               name = cellValue.trim();
             } else if (cellValue && typeof cellValue === 'object') {
-              // 处理单选、多选等字段类型
               const cellValueObj = cellValue as any;
               if (cellValueObj.text) {
                 name = String(cellValueObj.text).trim();
               } else if (Array.isArray(cellValueObj) && cellValueObj.length > 0) {
-                // 处理多选字段
                 const firstItem = cellValueObj[0];
                 if (firstItem && firstItem.text) {
                   name = String(firstItem.text).trim();
@@ -237,7 +279,14 @@ export default function Lottery(props: { bgColor: string }) {
     }
   }, [isConfig, loadTables]);
 
-  // 当表格选择变化时加载字段
+  // 当表格选择变化时加载视图
+  useEffect(() => {
+    if (config.tableId && isConfig) {
+      loadViews(config.tableId);
+    }
+  }, [config.tableId, isConfig, loadViews]);
+
+  // 当表格或视图变化时加载字段
   useEffect(() => {
     if (config.tableId && isConfig) {
       loadFields(config.tableId);
@@ -247,9 +296,9 @@ export default function Lottery(props: { bgColor: string }) {
   // 当字段选择变化时加载数据
   useEffect(() => {
     if (config.tableId && config.fieldId && isConfig) {
-      loadParticipantsFromTable(config.tableId, config.fieldId);
+      loadParticipantsFromTable(config.tableId, config.viewId, config.fieldId);
     }
-  }, [config.tableId, config.fieldId, isConfig, loadParticipantsFromTable]);
+  }, [config.tableId, config.viewId, config.fieldId, isConfig, loadParticipantsFromTable]);
 
   return (
     <main 
@@ -277,14 +326,17 @@ export default function Lottery(props: { bgColor: string }) {
           config={config} 
           setConfig={setConfig}
           tables={tables}
+          views={views}
           fields={fields}
           loading={loading}
-          onRefreshData={() => loadParticipantsFromTable(config.tableId, config.fieldId)}
+          onRefreshData={() => loadParticipantsFromTable(config.tableId, config.viewId, config.fieldId)}
         />
       )}
     </main>
   );
 }
+
+// LotteryView 组件保持不变...
 
 interface ILotteryView {
   config: ILotteryConfig;
@@ -301,6 +353,7 @@ function LotteryView({ config, isConfig, loading, t }: ILotteryView) {
   const [winner, setWinner] = useState<string | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [winnerIndex, setWinnerIndex] = useState<number>(-1);
+  const [animationKey, setAnimationKey] = useState(0);
 
   const spinTimeoutRef = useRef<number | null>(null);
 
@@ -311,6 +364,7 @@ function LotteryView({ config, isConfig, loading, t }: ILotteryView) {
     setShowResult(false);
     setWinner(null);
     setWinnerIndex(-1);
+    setAnimationKey(prev => prev + 1);
 
     spinTimeoutRef.current = window.setTimeout(() => {
       setIsSpinning(false);
@@ -334,6 +388,7 @@ function LotteryView({ config, isConfig, loading, t }: ILotteryView) {
     setShowResult(false);
     setWinner(null);
     setWinnerIndex(-1);
+    setAnimationKey(prev => prev + 1);
     if (spinTimeoutRef.current) {
       clearTimeout(spinTimeoutRef.current);
     }
@@ -383,13 +438,14 @@ function LotteryView({ config, isConfig, loading, t }: ILotteryView) {
                 <div className="glass-highlight"></div>
               </div>
               
-              <div className="balls-container">
+              <div className="balls-container" key={animationKey}>
                 {participants.map((name, index) => (
                   <div
                     key={index}
                     className={classnames('lottery-ball', {
                       'static-ball': !isSpinning && !isDropping && !showResult,
                       'rolling-ball': isSpinning,
+                      [`ball-${(index % 12) + 1}`]: isSpinning,
                       'dropping-ball': isDropping && winnerIndex === index,
                     })}
                     style={{
@@ -472,19 +528,20 @@ function ConfigPanel(props: {
   config: ILotteryConfig;
   setConfig: React.Dispatch<React.SetStateAction<ILotteryConfig>>;
   tables: {id: string, name: string}[];
+  views: {id: string, name: string}[];
   fields: {id: string, name: string}[];
   loading: boolean;
   onRefreshData: () => void;
   t: any;
 }) {
-  const { config, setConfig, tables, fields, loading, onRefreshData, t } = props;
+  const { config, setConfig, tables, views, fields, loading, onRefreshData, t } = props;
 
   const onSaveConfig = () => {
     dashboard.saveConfig({
       customConfig: config,
       dataConditions: [],
     } as any).then(() => {
-      Toast.success('配置保存成功');
+      Toast.success(t('confirm', '配置保存成功'));
     }).catch((error: any) => {
       console.error('保存配置失败:', error);
       Toast.error('保存配置失败');
@@ -496,6 +553,17 @@ function ConfigPanel(props: {
     setConfig({
       ...config,
       tableId,
+      viewId: '',
+      fieldId: '',
+      participants: [],
+    });
+  };
+
+  const handleViewChange = (value: any) => {
+    const viewId = String(value);
+    setConfig({
+      ...config,
+      viewId,
       fieldId: '',
       participants: [],
     });
@@ -569,6 +637,26 @@ function ConfigPanel(props: {
                 {tables.map((table) => (
                   <Select.Option key={table.id} value={table.id}>
                     {table.name}
+                  </Select.Option>
+                ))}
+              </Select>
+            </div>
+          </div>
+
+          <div className='config-item'>
+            <label className='config-label'>{t('lottery.selectView', '选择视图')}</label>
+            <div className='config-content'>
+              <Select
+                value={config.viewId}
+                onChange={handleViewChange}
+                style={{ width: '100%' }}
+                placeholder={t('lottery.selectViewPlaceholder', '请选择视图（可选）')}
+                disabled={!config.tableId}
+                loading={loading}
+              >
+                {views.map((view) => (
+                  <Select.Option key={view.id} value={view.id}>
+                    {view.name}
                   </Select.Option>
                 ))}
               </Select>
