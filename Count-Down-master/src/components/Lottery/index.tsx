@@ -40,15 +40,12 @@ export default function Lottery(props: { bgColor: string }) {
     title: t('lottery.title'),
   });
 
-  const [tables, setTables] = useState<any[]>([]);
-  const [fields, setFields] = useState<any[]>([]);
+  const [tables, setTables] = useState<{id: string, name: string}[]>([]);
+  const [fields, setFields] = useState<{id: string, name: string}[]>([]);
   const [loading, setLoading] = useState(false);
 
   const isCreate = dashboard.state === DashboardState.Create;
   const isConfig = dashboard.state === DashboardState.Config || isCreate;
-
-  console.log('当前仪表盘状态:', dashboard.state);
-  console.log('是否配置模式:', isConfig);
 
   useEffect(() => {
     if (isCreate) {
@@ -67,14 +64,25 @@ export default function Lottery(props: { bgColor: string }) {
 
   const timer = useRef<number | null>(null);
 
+  /** 配置更新回调 - 修复类型转换问题 */
   const updateConfig = (res: IConfig) => {
     if (timer.current) {
       clearTimeout(timer.current);
     }
     const { customConfig } = res;
     if (customConfig) {
-      console.log('收到配置更新:', customConfig);
-      setConfig(customConfig as any);
+      // 安全的类型转换
+      const validatedConfig: ILotteryConfig = {
+        color: typeof customConfig.color === 'string' ? customConfig.color : DEFAULT_COLOR,
+        tableId: typeof customConfig.tableId === 'string' ? customConfig.tableId : '',
+        fieldId: typeof customConfig.fieldId === 'string' ? customConfig.fieldId : '',
+        participants: Array.isArray(customConfig.participants) ? customConfig.participants : [],
+        spinDuration: typeof customConfig.spinDuration === 'number' ? customConfig.spinDuration : 3000,
+        dropDuration: typeof customConfig.dropDuration === 'number' ? customConfig.dropDuration : 1000,
+        showTitle: typeof customConfig.showTitle === 'boolean' ? customConfig.showTitle : true,
+        title: typeof customConfig.title === 'string' ? customConfig.title : t('lottery.title'),
+      };
+      setConfig(validatedConfig);
       timer.current = window.setTimeout(() => {
         dashboard.setRendered();
       }, 3000);
@@ -83,20 +91,30 @@ export default function Lottery(props: { bgColor: string }) {
 
   useConfig(updateConfig);
 
+  /** 获取表格列表 */
   const loadTables = useCallback(async () => {
     try {
       setLoading(true);
-      console.log('开始加载表格列表...');
       const tableList = await bitable.base.getTableList();
-      console.log('获取到的表格列表:', tableList);
-      setTables(tableList);
       
-      if (tableList.length > 0 && !config.tableId) {
-        const firstTable = tableList[0];
-        console.log('默认选择第一个表格:', firstTable);
+      const tablesWithNames = await Promise.all(
+        tableList.map(async (table) => {
+          try {
+            const name = await table.getName();
+            return { id: table.id, name };
+          } catch (error) {
+            console.warn(`获取表格名称失败:`, error);
+            return { id: table.id, name: `表格-${table.id}` };
+          }
+        })
+      );
+      
+      setTables(tablesWithNames);
+      
+      if (tablesWithNames.length > 0 && !config.tableId) {
         setConfig(prev => ({
           ...prev,
-          tableId: firstTable.id
+          tableId: tablesWithNames[0].id
         }));
       }
     } catch (error) {
@@ -107,31 +125,38 @@ export default function Lottery(props: { bgColor: string }) {
     }
   }, [config.tableId, t]);
 
+  /** 获取字段列表 */
   const loadFields = useCallback(async (tableId: string) => {
     try {
       if (!tableId) return;
       
-      console.log('开始加载字段列表，表格ID:', tableId);
       const table = await bitable.base.getTableById(tableId);
       const fieldList = await table.getFieldList();
-      console.log('获取到的字段列表:', fieldList);
       
-      // 过滤出文本类型的字段
-      const textFields = fieldList.filter((field: any) => {
-        const fieldType = field.type;
-        // 文本类型字段：1-文本, 4-单选, 5-多选, 11-人员
-        return fieldType === 1 || fieldType === 4 || fieldType === 5 || fieldType === 11;
-      });
+      const fieldsWithInfo = await Promise.all(
+        fieldList.map(async (field) => {
+          try {
+            const name = await field.getName();
+            return { 
+              id: field.id, 
+              name,
+            };
+          } catch (error) {
+            console.warn(`获取字段信息失败:`, error);
+            return { 
+              id: field.id, 
+              name: `字段-${field.id}`,
+            };
+          }
+        })
+      );
       
-      console.log('过滤后的文本字段:', textFields);
-      setFields(textFields);
+      setFields(fieldsWithInfo);
       
-      if (textFields.length > 0 && !config.fieldId) {
-        const firstField = textFields[0];
-        console.log('默认选择第一个字段:', firstField);
+      if (fieldsWithInfo.length > 0 && !config.fieldId) {
         setConfig(prev => ({
           ...prev,
-          fieldId: firstField.id
+          fieldId: fieldsWithInfo[0].id
         }));
       }
     } catch (error) {
@@ -140,69 +165,47 @@ export default function Lottery(props: { bgColor: string }) {
     }
   }, [config.fieldId, t]);
 
-  /** 从表格加载参与者数据 */
+  /** 从表格加载参与者数据 - 修复 recordId 问题 */
   const loadParticipantsFromTable = useCallback(async (tableId: string, fieldId: string) => {
     try {
       if (!tableId || !fieldId) return;
       
-      console.log('开始加载参与者数据，表格:', tableId, '字段:', fieldId);
       const table = await bitable.base.getTableById(tableId);
-      const recordList = await table.getRecordList();
-      console.log('获取到的记录列表:', recordList);
       
-      // 获取字段信息以确定字段类型
-      const field = await table.getFieldById(fieldId);
-      const fieldType = field.type;
-      console.log('字段类型:', fieldType);
+      // 正确使用 getRecordList()
+      const recordList = await table.getRecordList();
       
       const participants: string[] = [];
       
+      // recordList 已经是数组，可以直接遍历
       for (const record of recordList) {
         try {
+          // 使用 record.id 而不是 record.recordId
           const cellValue = await table.getCellValue(fieldId, record.id);
-          console.log('单元格值类型:', typeof cellValue, '值:', cellValue);
           
           if (cellValue) {
             let name = '';
-            const cellValueAny = cellValue as any;
             
-            // 根据字段类型处理不同的数据格式
-            switch (fieldType) {
-              case 1: // 文本类型
-                name = String(cellValueAny).trim();
-                break;
-                
-              case 4: // 单选
-              case 5: // 多选
-                name = cellValueAny?.text ? String(cellValueAny.text).trim() : '';
-                break;
-                
-              case 11: // 人员字段
-                if (Array.isArray(cellValueAny) && cellValueAny.length > 0) {
-                  const firstUser = cellValueAny[0];
-                  name = firstUser?.name ? String(firstUser.name).trim() : '';
+            // 根据飞书 SDK 文档处理不同的字段类型
+            if (typeof cellValue === 'string') {
+              name = cellValue.trim();
+            } else if (cellValue && typeof cellValue === 'object') {
+              // 处理单选、多选等字段类型
+              const cellValueObj = cellValue as any;
+              if (cellValueObj.text) {
+                name = String(cellValueObj.text).trim();
+              } else if (Array.isArray(cellValueObj) && cellValueObj.length > 0) {
+                // 处理多选字段
+                const firstItem = cellValueObj[0];
+                if (firstItem && firstItem.text) {
+                  name = String(firstItem.text).trim();
+                } else if (typeof firstItem === 'string') {
+                  name = firstItem.trim();
                 }
-                break;
-                
-              default:
-                // 通用处理
-                if (typeof cellValueAny === 'string') {
-                  name = cellValueAny.trim();
-                } else if (cellValueAny?.text) {
-                  name = String(cellValueAny.text).trim();
-                } else if (cellValueAny?.name) {
-                  name = String(cellValueAny.name).trim();
-                } else if (Array.isArray(cellValueAny) && cellValueAny.length > 0) {
-                  const firstItem = cellValueAny[0];
-                  if (firstItem && typeof firstItem === 'object' && 'name' in firstItem) {
-                    name = String((firstItem as any).name).trim();
-                  } else {
-                    name = String(firstItem).trim();
-                  }
-                }
+              }
             }
             
-            if (name && !participants.includes(name)) {
+            if (name && name !== '' && !participants.includes(name)) {
               participants.push(name);
             }
           }
@@ -211,7 +214,6 @@ export default function Lottery(props: { bgColor: string }) {
         }
       }
       
-      console.log('最终参与者列表:', participants);
       setConfig(prev => ({
         ...prev,
         participants
@@ -469,8 +471,8 @@ function LotteryView({ config, isConfig, loading, t }: ILotteryView) {
 function ConfigPanel(props: {
   config: ILotteryConfig;
   setConfig: React.Dispatch<React.SetStateAction<ILotteryConfig>>;
-  tables: any[];
-  fields: any[];
+  tables: {id: string, name: string}[];
+  fields: {id: string, name: string}[];
   loading: boolean;
   onRefreshData: () => void;
   t: any;
@@ -478,7 +480,6 @@ function ConfigPanel(props: {
   const { config, setConfig, tables, fields, loading, onRefreshData, t } = props;
 
   const onSaveConfig = () => {
-    console.log('保存配置:', config);
     dashboard.saveConfig({
       customConfig: config,
       dataConditions: [],
@@ -492,7 +493,6 @@ function ConfigPanel(props: {
 
   const handleTableChange = (value: any) => {
     const tableId = String(value);
-    console.log('选择表格:', tableId);
     setConfig({
       ...config,
       tableId,
@@ -503,7 +503,6 @@ function ConfigPanel(props: {
 
   const handleFieldChange = (value: any) => {
     const fieldId = String(value);
-    console.log('选择字段:', fieldId);
     setConfig({
       ...config,
       fieldId,
@@ -567,9 +566,9 @@ function ConfigPanel(props: {
                 placeholder={t('lottery.selectTablePlaceholder')}
                 loading={loading}
               >
-                {tables.map((table: any) => (
+                {tables.map((table) => (
                   <Select.Option key={table.id} value={table.id}>
-                    {table.name || `表格-${table.id}`}
+                    {table.name}
                   </Select.Option>
                 ))}
               </Select>
@@ -587,9 +586,9 @@ function ConfigPanel(props: {
                 disabled={!config.tableId}
                 loading={loading}
               >
-                {fields.map((field: any) => (
+                {fields.map((field) => (
                   <Select.Option key={field.id} value={field.id}>
-                    {field.name || `字段-${field.id}`}
+                    {field.name}
                   </Select.Option>
                 ))}
               </Select>
